@@ -228,8 +228,10 @@ func main() {
 - `V`: Enter visual line mode
 - `:`: Enter command mode
 - `x`: Delete character at cursor
+- `r`: Replace character at cursor
 - `dd`: Delete line
 - `D`: Delete from cursor to end of line
+- `C`: Change from cursor to end of line
 - `yy`: Yank (copy) line
 - `p`: Paste after cursor
 - `P`: Paste before cursor

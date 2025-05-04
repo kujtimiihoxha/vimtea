@@ -105,6 +105,7 @@ type editorModel struct {
 	lastBlinkTime   time.Time      // Time of last cursor blink
 	blinkInterval   time.Duration  // Cursor blink interval
 	enableStatusBar bool           // Whether to show the status bar
+	waitReplace     bool           // Whether waiting for replace character
 
 	lineNumberStyle        lipgloss.Style
 	currentLineNumberStyle lipgloss.Style
@@ -348,6 +349,11 @@ func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			// Insert regular characters
 			if len(msg.String()) == 1 {
+				// if waitin for replace, insert and return to normal mode
+				if m.waitReplace {
+					m.waitReplace = false
+					return replaceCurrentCharacter(m, msg.String())
+				}
 				return insertCharacter(m, msg.String())
 			}
 		}

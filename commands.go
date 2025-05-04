@@ -60,6 +60,7 @@ func registerBindings(m *editorModel) {
 	m.registry.Add("v", beginVisualSelection, ModeNormal, "Enter visual mode")
 	m.registry.Add("V", beginVisualLineSelection, ModeNormal, "Enter visual line mode")
 	m.registry.Add("x", deleteCharAtCursor, ModeNormal, "Delete character at cursor")
+	m.registry.Add("r", beginReplaceAtCursor, ModeNormal, "Delete character at cursor")
 	if m.enableCommandMode {
 		m.registry.Add(":", enterModeCommand, ModeNormal, "Enter command mode")
 	}
@@ -73,6 +74,7 @@ func registerBindings(m *editorModel) {
 	m.registry.Add("yy", yankLine, ModeNormal, "Yank line")
 	m.registry.Add("dd", deleteLine, ModeNormal, "Delete line")
 	m.registry.Add("D", deleteToEndOfLine, ModeNormal, "Delete to end of line")
+	m.registry.Add("C", changeToEndOfLine, ModeNormal, "Change to end of line")
 	m.registry.Add("p", pasteAfter, ModeNormal, "Paste after cursor")
 	m.registry.Add("P", pasteBefore, ModeNormal, "Paste before cursor")
 
@@ -162,6 +164,11 @@ func moveToFirstNonWhitespace(model *editorModel) tea.Cmd {
 	return nil
 }
 
+func changeToEndOfLine(model *editorModel) tea.Cmd {
+	_ = deleteToEndOfLine(model)
+	return enterModeInsert(model)
+}
+
 func deleteToEndOfLine(model *editorModel) tea.Cmd {
 	row := model.cursor.Row
 	col := model.cursor.Col
@@ -249,6 +256,22 @@ func openLineAbove(model *editorModel) tea.Cmd {
 	model.cursor.Col = 0
 	model.ensureCursorVisible()
 	return switchMode(model, ModeInsert)
+}
+
+func replaceCurrentCharacter(model *editorModel, char string) (tea.Model, tea.Cmd) {
+	model.buffer.saveUndoState(model.cursor)
+	// perform replacement
+	deleteCharAtCursor(model)
+	insertCharacter(model, char)
+
+	// remove delete/insert undo states
+	if len(model.buffer.undoStack) > 1 {
+		model.buffer.undoStack = model.buffer.undoStack[:len(model.buffer.undoStack)-2]
+	}
+	// restore cursor to position of replacement
+	// safe to not check len because insertCharacter increments cursor col
+	model.cursor.Col--
+	return model, nil
 }
 
 func insertCharacter(model *editorModel, char string) (tea.Model, tea.Cmd) {
@@ -507,6 +530,15 @@ func undo(model *editorModel) tea.Cmd {
 
 func redo(model *editorModel) tea.Cmd {
 	return model.buffer.redo(model.cursor)
+}
+
+func beginReplaceAtCursor(model *editorModel) tea.Cmd {
+	deleteCharAtCursor(model)
+	model.buffer.insertAt(model.cursor.Row, model.cursor.Col, " ")
+  // mark waitReplace to be handled in next insert keymsg
+	model.waitReplace = true
+	return enterModeInsert(model)
+
 }
 
 func deleteCharAtCursor(model *editorModel) tea.Cmd {
